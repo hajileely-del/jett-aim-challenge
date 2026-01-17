@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Jett Aim Challenge - Setup First</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #0f1923; font-family: 'Segoe UI', sans-serif; }
+        #crosshair {
+            position: absolute; top: 50%; left: 50%; width: 4px; height: 4px;
+            background: #00ffff; border-radius: 50%; transform: translate(-50%, -50%);
+            pointer-events: none; z-index: 10; border: 1px solid rgba(0,0,0,0.8); display: none;
+        }
+        #ui, #timer-ui, #weapon-ui { display: none; } /* Ẩn UI khi chưa bắt đầu */
+        
+        #ui {
+            position: absolute; top: 20px; left: 20px; color: #fff;
+            background: rgba(0,0,0,0.7); padding: 15px; border-radius: 5px; border-left: 5px solid #ff4655; z-index: 10;
+        }
+        #timer-ui {
+            position: absolute; top: 20px; right: 20px; color: #00ffff;
+            background: rgba(0,0,0,0.7); padding: 15px; border-radius: 5px; font-weight: bold; font-size: 24px;
+        }
+        #weapon-ui {
+            position: absolute; bottom: 30px; right: 30px; color: #fff;
+            background: rgba(0,0,0,0.8); padding: 15px; border-radius: 5px; font-weight: bold; font-size: 20px;
+        }
+        #kill-banner {
+            position: absolute; bottom: 15%; left: 50%; transform: translateX(-50%) scale(0);
+            background: linear-gradient(transparent, rgba(255, 70, 85, 0.8), transparent);
+            color: white; padding: 10px 40px; font-size: 30px; font-weight: 900;
+            text-shadow: 2px 2px #000; transition: transform 0.1s;
+            pointer-events: none; z-index: 20; border-top: 2px solid #fff; border-bottom: 2px solid #fff;
+        }
+        
+        /* Menu khởi đầu */
+        #start-menu {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 25, 35, 0.9); display: flex; justify-content: center; align-items: center;
+            color: white; z-index: 1000;
+        }
+        .menu-content {
+            background: #1f2326; padding: 40px; border-radius: 10px; border-top: 5px solid #ff4655;
+            width: 350px; text-align: center; box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        .menu-content h1 { color: #ff4655; margin-bottom: 30px; font-size: 28px; }
+        .setting-item { margin-bottom: 20px; text-align: left; }
+        input[type=range] { width: 100%; accent-color: #ff4655; cursor: pointer; }
+        
+        .start-btn {
+            width: 100%; padding: 15px; background: #ff4655; color: white; border: none;
+            font-weight: bold; font-size: 18px; cursor: pointer; margin-top: 20px; transition: 0.2s;
+        }
+        .start-btn:hover { background: #ff5e6a; transform: translateY(-2px); }
+
+        #victory-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 25, 35, 0.95); display: none; flex-direction: column;
+            justify-content: center; align-items: center; color: white; z-index: 2000;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="start-menu">
+        <div class="menu-content">
+            <h1>JETT TRAINING</h1>
+            <div class="setting-item">
+                <label>Độ nhạy chuột: <span id="sVal">2.0</span></label>
+                <input type="range" id="sIn" min="0.1" max="5" step="0.1" value="2">
+            </div>
+            <div class="setting-item">
+                <label>Âm lượng: <span id="vVal">50</span>%</label>
+                <input type="range" id="vIn" min="0" max="100" value="50">
+            </div>
+            <p style="font-size: 12px; color: #888; margin-bottom: 20px;">
+                SPACE: NHẢY/LƯỢN | Q: BAY CAO | E: DASH<br>
+                1: VANDAL | 2: SHERIFF
+            </p>
+            <button class="start-btn" id="startBtn">START CHALLENGE</button>
+        </div>
+    </div>
+
+    <div id="victory-screen">
+        <h1 style="color:#ff4655; font-size: 48px;">MISSION COMPLETE</h1>
+        <p id="final-time" style="font-size: 24px;"></p>
+        <h2 id="rank-display" style="font-size: 60px; margin: 20px 0;">RANK</h2>
+        <button class="start-btn" style="width: 200px;" onclick="location.reload()">PLAY AGAIN</button>
+    </div>
+
+    <div id="ui"><h2>JETT PROGRESS</h2>Kills: <span id="kC">0</span> / 30</div>
+    <div id="timer-ui">TIME: 00:00</div>
+    <div id="weapon-ui">VANDAL</div>
+    <div id="crosshair"></div>
+    <div id="kill-banner">KILLED</div>
+    <div id="dash-indicator" style="position:absolute; bottom:100px; left:50%; transform:translateX(-50%); color:#00ffff; display:none;">TAILWIND READY</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+
+    <script>
+        const TARGET_KILLS = 30;
+        let kills = 0, startTime = null, gameActive = false, isGameOver = false;
+
+        function getRank(seconds) {
+            if (seconds < 40) return { name: "RADIANT", color: "#ff91e4" };
+            if (seconds < 55) return { name: "IMMORTAL", color: "#b63b3b" };
+            if (seconds < 75) return { name: "ASCENDANT", color: "#3da660" };
+            if (seconds < 100) return { name: "DIAMOND", color: "#b988f1" };
+            return { name: "PLATINUM", color: "#4ec0d3" };
+        }
+
+        function formatTime(ms) {
+            let totalSecs = Math.floor(ms / 1000);
+            return `${Math.floor(totalSecs/60).toString().padStart(2,'0')}:${(totalSecs%60).toString().padStart(2,'0')}`;
+        }
+
+        // --- THREE.JS SETUP ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87ceeb);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+        const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+        sun.position.set(20, 100, 20);
+        scene.add(sun);
+
+        const colliders = [];
+        function createBox(w, h, d, x, y, z, color) {
+            const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color }));
+            mesh.position.set(x, y, z);
+            scene.add(mesh);
+            colliders.push({ box: new THREE.Box3().setFromObject(mesh), top: y + h/2 });
+        }
+
+        createBox(200, 1, 200, 0, -0.5, 0, 0x2e1d0b);
+        createBox(2, 20, 100, -50, 10, 0, 0x5a5a5a);
+        createBox(2, 20, 100, 50, 10, 0, 0x5a5a5a);
+        createBox(100, 20, 2, 0, 10, -50, 0x5a5a5a);
+
+        for(let i=0; i<40; i++) {
+            let bh = 1.5 + Math.random()*4;
+            createBox(2.5, bh, 2.5, Math.random()*80-40, bh/2, Math.random()*80-40, 0xd2a679);
+        }
+
+        const gunPivot = new THREE.Group();
+        camera.add(gunPivot); scene.add(camera);
+        let curW = 'vandal';
+        const models = {
+            vandal: new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.2, 0.8), new THREE.MeshStandardMaterial({color: 0x222})),
+            sheriff: new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.25, 0.4), new THREE.MeshStandardMaterial({color: 0x444}))
+        };
+        function switchW(t) { curW=t; gunPivot.clear(); gunPivot.add(models[t]); models[t].position.set(0.4,-0.4,-0.6); document.getElementById('weapon-ui').innerText=t.toUpperCase(); }
+        switchW('vandal');
+
+        let audioCtx;
+        function playSfx(f, d, type='square', v=0.05) {
+            if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const vol = document.getElementById('vIn').value / 100;
+            const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+            o.type = type; o.frequency.value = f;
+            g.gain.setValueAtTime(v * vol, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + d);
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime + d);
+        }
+
+        let vY = 0, isG = true, canD = true, dashReady = false, dashActive = 0, dashDir = new THREE.Vector3();
+        let botHP = 100, isFiring = false, lastFire = 0;
+        const keys = {};
+
+        // Xử lý bắt đầu game
+        document.getElementById('startBtn').onclick = () => {
+            document.getElementById('start-menu').style.display = 'none';
+            document.getElementById('ui').style.display = 'block';
+            document.getElementById('timer-ui').style.display = 'block';
+            document.getElementById('weapon-ui').style.display = 'block';
+            document.getElementById('crosshair').style.display = 'block';
+            
+            renderer.domElement.requestPointerLock();
+            gameActive = true;
+            startTime = Date.now();
+            spawnBot();
+        };
+
+        window.onkeydown = (e) => {
+            if(!gameActive || isGameOver) return;
+            keys[e.code] = true;
+            if(e.code === 'Space' && isG) { vY = 0.15; isG = false; playSfx(400, 0.1, 'sine', 0.02); }
+            if(e.code === 'KeyQ') { vY = 0.4; isG = false; playSfx(600, 0.2, 'sine'); }
+            if(e.code === 'KeyE' && canD) {
+                if(!dashReady) { dashReady = true; document.getElementById('dash-indicator').style.display = 'block'; }
+                else {
+                    let mx = 0, mz = 0;
+                    if(keys['KeyW']) mz -= 1; if(keys['KeyS']) mz += 1;
+                    if(keys['KeyA']) mx -= 1; if(keys['KeyD']) mx += 1;
+                    if(mx === 0 && mz === 0) camera.getWorldDirection(dashDir);
+                    else dashDir.set(mx, 0, mz).applyQuaternion(camera.quaternion);
+                    dashDir.y = 0; dashDir.normalize();
+                    dashActive = 25; dashReady = false; canD = false;
+                    document.getElementById('dash-indicator').style.display = 'none';
+                    setTimeout(() => canD = true, 2000);
+                    playSfx(200, 0.3, 'sawtooth');
+                }
+            }
+            if(e.code === 'Digit1') switchW('vandal');
+            if(e.code === 'Digit2') switchW('sheriff');
+        };
+        window.onkeyup = (e) => keys[e.code] = false;
+
+        let bot = new THREE.Group();
+        function spawnBot() {
+            scene.remove(bot); bot = new THREE.Group();
+            const b = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.6, 0.6), new THREE.MeshStandardMaterial({color: 0x00ff00}));
+            b.userData.type = 'body'; b.position.y = 0.8;
+            const h = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), new THREE.MeshStandardMaterial({color: 0xff0000}));
+            h.userData.type = 'head'; h.position.y = 1.8;
+            bot.add(b, h);
+            let targetBox = colliders[Math.floor(Math.random() * colliders.length)];
+            bot.position.set(targetBox.box.getCenter(new THREE.Vector3()).x, targetBox.top, targetBox.box.getCenter(new THREE.Vector3()).z);
+            scene.add(bot); botHP = 100;
+        }
+
+        const ray = new THREE.Raycaster();
+        function shoot() {
+            const now = Date.now();
+            if (now - lastFire < (curW === 'vandal' ? 120 : 500)) return;
+            lastFire = now;
+            playSfx(curW === 'vandal' ? 160 : 80, 0.1, 'square', 0.1);
+            ray.setFromCamera(new THREE.Vector2(0,0), camera);
+            const hits = ray.intersectObjects(bot.children);
+            if(hits.length > 0) {
+                if(hits[0].object.userData.type === 'head') botHP = 0;
+                else botHP -= (curW === 'vandal' ? 35 : 60);
+                if(botHP <= 0) { 
+                    kills++; document.getElementById('kC').innerText = kills;
+                    const banner = document.getElementById('kill-banner');
+                    banner.style.transform = 'translateX(-50%) scale(1.2)';
+                    setTimeout(() => banner.style.transform = 'translateX(-50%) scale(0)', 500);
+                    if(kills >= TARGET_KILLS) {
+                        isGameOver = true; document.exitPointerLock();
+                        const time = Date.now() - startTime;
+                        document.getElementById('victory-screen').style.display = 'flex';
+                        document.getElementById('final-time').innerText = "Thời gian: " + formatTime(time);
+                        const r = getRank(time/1000);
+                        document.getElementById('rank-display').innerText = r.name;
+                        document.getElementById('rank-display').style.color = r.color;
+                    } else spawnBot();
+                }
+            }
+        }
+
+        window.onmousemove = (e) => {
+            if(document.pointerLockElement === renderer.domElement) {
+                const s = document.getElementById('sIn').value * 0.001;
+                camera.rotation.y -= e.movementX * s;
+                camera.rotation.x -= e.movementY * s;
+                camera.rotation.x = Math.max(-1.5, Math.min(1.5, camera.rotation.x));
+            }
+        };
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if(document.pointerLockElement === renderer.domElement && gameActive && !isGameOver) {
+                document.getElementById('timer-ui').innerText = "TIME: " + formatTime(Date.now() - startTime);
+                const spd = 0.08, old = camera.position.clone();
+                if(dashActive > 0) { camera.position.addScaledVector(dashDir, 0.45); dashActive--; vY = 0; }
+                else {
+                    if(keys['KeyW']) camera.translateZ(-spd); if(keys['KeyS']) camera.translateZ(spd);
+                    if(keys['KeyA']) camera.translateX(-spd); if(keys['KeyD']) camera.translateX(spd);
+                }
+                let g = -0.005;
+                if(!isG) { if(keys['Space'] && vY < 0) { g = -0.0008; vY = Math.max(vY, -0.02); } vY += g; }
+                camera.position.y += vY;
+                let gY = 2.0;
+                for(let c of colliders) {
+                    const p = camera.position;
+                    if(p.x > c.box.min.x-0.6 && p.x < c.box.max.x+0.6 && p.z > c.box.min.z-0.6 && p.z < c.box.max.z+0.6) {
+                        if(old.y >= c.top + 1.5) gY = c.top + 2.0;
+                        else { camera.position.x = old.x; camera.position.z = old.z; }
+                    }
+                }
+                if(camera.position.y <= gY) { camera.position.y = gY; vY = 0; isG = true; } else isG = false;
+                if(isFiring) shoot();
+            }
+            renderer.render(scene, camera);
+        }
+
+        document.getElementById('sIn').oninput = (e) => document.getElementById('sVal').innerText = e.target.value;
+        document.getElementById('vIn').oninput = (e) => document.getElementById('vVal').innerText = e.target.value;
+        document.addEventListener('mousedown', (e) => { if(e.button === 0) isFiring = true; });
+        document.addEventListener('mouseup', () => isFiring = false);
+        camera.rotation.order = 'YXZ';
+        animate();
+    </script>
+</body>
+</html>
