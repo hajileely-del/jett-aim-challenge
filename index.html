@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Jett Aim Challenge - Setup First</title>
+    <title>Jett Aim Challenge - Jump Fixed</title>
     <style>
         body { margin: 0; overflow: hidden; background: #0f1923; font-family: 'Segoe UI', sans-serif; }
         #crosshair {
@@ -10,8 +10,7 @@
             background: #00ffff; border-radius: 50%; transform: translate(-50%, -50%);
             pointer-events: none; z-index: 10; border: 1px solid rgba(0,0,0,0.8); display: none;
         }
-        #ui, #timer-ui, #weapon-ui { display: none; } /* Ẩn UI khi chưa bắt đầu */
-        
+        #ui, #timer-ui, #weapon-ui { display: none; }
         #ui {
             position: absolute; top: 20px; left: 20px; color: #fff;
             background: rgba(0,0,0,0.7); padding: 15px; border-radius: 5px; border-left: 5px solid #ff4655; z-index: 10;
@@ -31,8 +30,6 @@
             text-shadow: 2px 2px #000; transition: transform 0.1s;
             pointer-events: none; z-index: 20; border-top: 2px solid #fff; border-bottom: 2px solid #fff;
         }
-        
-        /* Menu khởi đầu */
         #start-menu {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(15, 25, 35, 0.9); display: flex; justify-content: center; align-items: center;
@@ -45,13 +42,10 @@
         .menu-content h1 { color: #ff4655; margin-bottom: 30px; font-size: 28px; }
         .setting-item { margin-bottom: 20px; text-align: left; }
         input[type=range] { width: 100%; accent-color: #ff4655; cursor: pointer; }
-        
         .start-btn {
             width: 100%; padding: 15px; background: #ff4655; color: white; border: none;
             font-weight: bold; font-size: 18px; cursor: pointer; margin-top: 20px; transition: 0.2s;
         }
-        .start-btn:hover { background: #ff5e6a; transform: translateY(-2px); }
-
         #victory-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(15, 25, 35, 0.95); display: none; flex-direction: column;
@@ -72,10 +66,7 @@
                 <label>Âm lượng: <span id="vVal">50</span>%</label>
                 <input type="range" id="vIn" min="0" max="100" value="50">
             </div>
-            <p style="font-size: 12px; color: #888; margin-bottom: 20px;">
-                SPACE: NHẢY/LƯỢN | Q: BAY CAO | E: DASH<br>
-                1: VANDAL | 2: SHERIFF
-            </p>
+            <p style="font-size: 11px; color: #888;">SPACE: NHẢY/LƯỢN | Q: UPDRAFT | E: DASH</p>
             <button class="start-btn" id="startBtn">START CHALLENGE</button>
         </div>
     </div>
@@ -101,11 +92,9 @@
         let kills = 0, startTime = null, gameActive = false, isGameOver = false;
 
         function getRank(seconds) {
-            if (seconds < 40) return { name: "RADIANT", color: "#ff91e4" };
-            if (seconds < 55) return { name: "IMMORTAL", color: "#b63b3b" };
-            if (seconds < 75) return { name: "ASCENDANT", color: "#3da660" };
-            if (seconds < 100) return { name: "DIAMOND", color: "#b988f1" };
-            return { name: "PLATINUM", color: "#4ec0d3" };
+            if (seconds < 45) return { name: "RADIANT", color: "#ff91e4" };
+            if (seconds < 65) return { name: "IMMORTAL", color: "#b63b3b" };
+            return { name: "DIAMOND", color: "#b988f1" };
         }
 
         function formatTime(ms) {
@@ -113,7 +102,6 @@
             return `${Math.floor(totalSecs/60).toString().padStart(2,'0')}:${(totalSecs%60).toString().padStart(2,'0')}`;
         }
 
-        // --- THREE.JS SETUP ---
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x87ceeb);
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
@@ -140,7 +128,7 @@
         createBox(100, 20, 2, 0, 10, -50, 0x5a5a5a);
 
         for(let i=0; i<40; i++) {
-            let bh = 1.5 + Math.random()*4;
+            let bh = 1.5 + Math.random()*6;
             createBox(2.5, bh, 2.5, Math.random()*80-40, bh/2, Math.random()*80-40, 0xd2a679);
         }
 
@@ -170,14 +158,12 @@
         let botHP = 100, isFiring = false, lastFire = 0;
         const keys = {};
 
-        // Xử lý bắt đầu game
         document.getElementById('startBtn').onclick = () => {
             document.getElementById('start-menu').style.display = 'none';
             document.getElementById('ui').style.display = 'block';
             document.getElementById('timer-ui').style.display = 'block';
             document.getElementById('weapon-ui').style.display = 'block';
             document.getElementById('crosshair').style.display = 'block';
-            
             renderer.domElement.requestPointerLock();
             gameActive = true;
             startTime = Date.now();
@@ -187,8 +173,20 @@
         window.onkeydown = (e) => {
             if(!gameActive || isGameOver) return;
             keys[e.code] = true;
-            if(e.code === 'Space' && isG) { vY = 0.15; isG = false; playSfx(400, 0.1, 'sine', 0.02); }
-            if(e.code === 'KeyQ') { vY = 0.4; isG = false; playSfx(600, 0.2, 'sine'); }
+            
+            // Fix Lỗi Nhảy:
+            if(e.code === 'Space' && isG) { 
+                vY = 0.18; // Tăng lực nhảy một chút
+                isG = false; 
+                playSfx(400, 0.1, 'sine', 0.02); 
+            }
+
+            if(e.code === 'KeyQ') { 
+                vY = 0.45; 
+                isG = false; 
+                playSfx(600, 0.2, 'sine'); 
+            }
+
             if(e.code === 'KeyE' && canD) {
                 if(!dashReady) { dashReady = true; document.getElementById('dash-indicator').style.display = 'block'; }
                 else {
@@ -198,7 +196,8 @@
                     if(mx === 0 && mz === 0) camera.getWorldDirection(dashDir);
                     else dashDir.set(mx, 0, mz).applyQuaternion(camera.quaternion);
                     dashDir.y = 0; dashDir.normalize();
-                    dashActive = 25; dashReady = false; canD = false;
+                    dashActive = 22; 
+                    dashReady = false; canD = false;
                     document.getElementById('dash-indicator').style.display = 'none';
                     setTimeout(() => canD = true, 2000);
                     playSfx(200, 0.3, 'sawtooth');
@@ -264,15 +263,30 @@
             requestAnimationFrame(animate);
             if(document.pointerLockElement === renderer.domElement && gameActive && !isGameOver) {
                 document.getElementById('timer-ui').innerText = "TIME: " + formatTime(Date.now() - startTime);
-                const spd = 0.08, old = camera.position.clone();
-                if(dashActive > 0) { camera.position.addScaledVector(dashDir, 0.45); dashActive--; vY = 0; }
+                
+                const spd = 0.1; 
+                const old = camera.position.clone();
+                
+                if(dashActive > 0) { 
+                    camera.position.addScaledVector(dashDir, 0.55);
+                    dashActive--; vY = 0; 
+                }
                 else {
                     if(keys['KeyW']) camera.translateZ(-spd); if(keys['KeyS']) camera.translateZ(spd);
                     if(keys['KeyA']) camera.translateX(-spd); if(keys['KeyD']) camera.translateX(spd);
                 }
-                let g = -0.005;
-                if(!isG) { if(keys['Space'] && vY < 0) { g = -0.0008; vY = Math.max(vY, -0.02); } vY += g; }
+
+                let g = -0.006; 
+                if(!isG) { 
+                    // CHỈ LƯỢN KHI ĐANG RƠI VÀ GIỮ SPACE
+                    if(keys['Space'] && vY < 0) { 
+                        g = -0.001; 
+                        vY = Math.max(vY, -0.035); 
+                    } 
+                    vY += g; 
+                }
                 camera.position.y += vY;
+                
                 let gY = 2.0;
                 for(let c of colliders) {
                     const p = camera.position;
@@ -281,7 +295,13 @@
                         else { camera.position.x = old.x; camera.position.z = old.z; }
                     }
                 }
-                if(camera.position.y <= gY) { camera.position.y = gY; vY = 0; isG = true; } else isG = false;
+                if(camera.position.y <= gY) { 
+                    camera.position.y = gY; 
+                    vY = 0; 
+                    isG = true; 
+                } else {
+                    isG = false;
+                }
                 if(isFiring) shoot();
             }
             renderer.render(scene, camera);
